@@ -1,0 +1,39 @@
+create a ubuntu instance on AWS
+
+connect to the instance
+
+#Initial update of repo
+sudo apt-get update
+
+#Download chefDK, get latest information from https://downloads.chef.io/chefdk
+cd ~
+wget https://packages.chef.io/files/stable/chefdk/1.4.3/ubuntu/16.04/chefdk_1.4.3-1_amd64.deb
+
+#Installing chef
+sudo dpkg -i chefdk_1.4.3-1_amd64.deb
+
+#Verify chef installation
+chef verify
+
+#First generate a repo
+cd ~
+chef generate repo firstrepo
+
+#Generate first cookbook
+cd ~/firstrepo/cookbooks
+chef generate cookbook firstcookbook
+
+#Write first recipe
+cd ~/firstrepo/cookbooks/firstcookbook/recipes/
+vi tomcatInstall.rb
+
+#Make chef's embeded ruby as default one, put this in ~/.bashrc
+export PATH="$PATH:/opt/chefdk/embedded/bin"
+
+#Calling my recipe from default recipe file
+vi default.rb
+include_recipe 'firstcookbook::tomcatInstall'
+
+# running cookbook using chef-client in local mode
+cd ~/firstrepo
+sudo chef-client --local-mode -r "recipe[firstcookbook]"
