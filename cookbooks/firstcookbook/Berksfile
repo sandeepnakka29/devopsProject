@@ -1,0 +1,5 @@
+source 'https://supermarket.chef.io'
+
+cookbook 'chef-sugar', '~> 3.4.0'
+cookbook 'firewall', '~> 2.6.2'
+metadata
