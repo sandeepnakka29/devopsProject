@@ -1,25 +1,62 @@
-<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}"
-	plugins-version="2">
-	<plugin-info>
-		<description>${project.description}</description>
-		<version>${project.version}</version>
-		<vendor name="${project.organization.name}" url="${project.organization.url}" />
-		<param name="plugin-icon">images/pluginIcon.png</param>
-		<param name="plugin-logo">images/pluginLogo.png</param>
-	</plugin-info>
+package com.vanguard.cto.bitbucket.plugin.impl;
 
-	<!-- add our i18n resource -->
-	<resource type="i18n" name="i18n"
-		location="bitbucket-automated-approvals-plugin" />
-	<repository-merge-check key="isCloudControlsPassed"
-		name="Repo cloud controls check" i18n-name-key="vanguard.plugin.pre.hook.cloudcontrolscheck.name"
-		class="com.vanguard.cto.bitbucket.plugin.cloudcontrols.mergecheck.RepoCloudControlsCheck">
-		<description
-			key="vanguard.plugin.pre.hook.icloudcontrolscheck.description" />
-		<icon>icons/pluginIcon.png</icon>
-		<scopes>
-			<scope>project</scope>
-			<scope>repository</scope>
-		</scopes>
-	</repository-merge-check>
-</atlassian-plugin>
+import java.util.ArrayList;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.atlassian.bitbucket.hook.repository.PreRepositoryHookContext;
+import com.atlassian.bitbucket.hook.repository.PullRequestMergeHookRequest;
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult;
+import com.atlassian.bitbucket.hook.repository.RepositoryMergeCheck;
+import com.atlassian.bitbucket.i18n.I18nService;
+import com.atlassian.bitbucket.pull.PullRequest;
+import com.atlassian.bitbucket.pull.PullRequestParticipant;
+import com.atlassian.bitbucket.pull.PullRequestParticipantStatus;
+
+public class IsIAMApproverCheck implements RepositoryMergeCheck {
+	
+	private final I18nService i18nService;
+	private static final Logger log = LoggerFactory.getLogger(IsIAMApproverCheck.class);
+	
+    public IsIAMApproverCheck(I18nService i18nService) {
+    	this.i18nService = i18nService;
+    }
+
+	@Override
+	public RepositoryHookResult preUpdate(PreRepositoryHookContext context, PullRequestMergeHookRequest request) {
+		List<PullRequestParticipant> approvers = new ArrayList<PullRequestParticipant>();
+		
+		PullRequest pullRequest = request.getPullRequest();
+		pullRequest.getReviewers().stream()
+	    	.filter(p -> PullRequestParticipantStatus.APPROVED.equals(p.getStatus()))
+	    	.forEach(p -> approvers.add(p));
+		
+        if(isMergeToMaster(pullRequest) && !isIamApproved(approvers)){
+        	String summaryMsg = i18nService.getMessage("vanguard.plugin.pre.hook.isiamcheckrequired.summary");
+            String detailedMsg = i18nService.getMessage("vanguard.plugin.pre.hook.isiamcheckrequired.detailed");
+            return RepositoryHookResult.rejected(summaryMsg, detailedMsg);
+        }
+		return RepositoryHookResult.accepted();
+	}
+	
+	private boolean isMergeToMaster(PullRequest pullRequest) {
+		if(pullRequest.getToRef().toString().contains("refs/heads/master")) {
+			return true;
+		}
+		return false;
+	}
+
+	private boolean isIamApproved(List<PullRequestParticipant> approvers) {
+		for(PullRequestParticipant approver : approvers){
+			//compare usernames
+			if("UCQB".equals(approver.getUser().getName())){
+				log.info("IsIAMApproverCheck.isIamApproved users: " + approver.getUser().getName());
+				return true;
+			}
+		}
+		return false;
+	}
+
+}
