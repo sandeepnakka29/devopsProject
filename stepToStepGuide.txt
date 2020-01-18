@@ -1,39 +1,25 @@
-create a ubuntu instance on AWS
+<atlassian-plugin key="${atlassian.plugin.key}" name="${project.name}"
+	plugins-version="2">
+	<plugin-info>
+		<description>${project.description}</description>
+		<version>${project.version}</version>
+		<vendor name="${project.organization.name}" url="${project.organization.url}" />
+		<param name="plugin-icon">images/pluginIcon.png</param>
+		<param name="plugin-logo">images/pluginLogo.png</param>
+	</plugin-info>
 
-connect to the instance
-
-#Initial update of repo
-sudo apt-get update
-
-#Download chefDK, get latest information from https://downloads.chef.io/chefdk
-cd ~
-wget https://packages.chef.io/files/stable/chefdk/1.4.3/ubuntu/16.04/chefdk_1.4.3-1_amd64.deb
-
-#Installing chef
-sudo dpkg -i chefdk_1.4.3-1_amd64.deb
-
-#Verify chef installation
-chef verify
-
-#First generate a repo
-cd ~
-chef generate repo firstrepo
-
-#Generate first cookbook
-cd ~/firstrepo/cookbooks
-chef generate cookbook firstcookbook
-
-#Write first recipe
-cd ~/firstrepo/cookbooks/firstcookbook/recipes/
-vi tomcatInstall.rb
-
-#Make chef's embeded ruby as default one, put this in ~/.bashrc
-export PATH="$PATH:/opt/chefdk/embedded/bin"
-
-#Calling my recipe from default recipe file
-vi default.rb
-include_recipe 'firstcookbook::tomcatInstall'
-
-# running cookbook using chef-client in local mode
-cd ~/firstrepo
-sudo chef-client --local-mode -r "recipe[firstcookbook]"
+	<!-- add our i18n resource -->
+	<resource type="i18n" name="i18n"
+		location="bitbucket-automated-approvals-plugin" />
+	<repository-merge-check key="isCloudControlsPassed"
+		name="Repo cloud controls check" i18n-name-key="vanguard.plugin.pre.hook.cloudcontrolscheck.name"
+		class="com.vanguard.cto.bitbucket.plugin.cloudcontrols.mergecheck.RepoCloudControlsCheck">
+		<description
+			key="vanguard.plugin.pre.hook.icloudcontrolscheck.description" />
+		<icon>icons/pluginIcon.png</icon>
+		<scopes>
+			<scope>project</scope>
+			<scope>repository</scope>
+		</scopes>
+	</repository-merge-check>
+</atlassian-plugin>
