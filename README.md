@@ -1,24 +1,62 @@
-# Overview
+package com.vanguard.cto.bitbucket.plugin.impl;
 
-Every Chef installation needs a Chef Repository. This is the place where cookbooks, roles, config files and other artifacts for managing systems with Chef will live. We strongly recommend storing this repository in a version control system such as Git and treat it like source code.
+import java.util.ArrayList;
+import java.util.List;
 
-While we prefer Git, and make this repository available via GitHub, you are welcome to download a tar or zip archive and use your favorite version control system to manage the code.
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-# Repository Directories
+import com.atlassian.bitbucket.hook.repository.PreRepositoryHookContext;
+import com.atlassian.bitbucket.hook.repository.PullRequestMergeHookRequest;
+import com.atlassian.bitbucket.hook.repository.RepositoryHookResult;
+import com.atlassian.bitbucket.hook.repository.RepositoryMergeCheck;
+import com.atlassian.bitbucket.i18n.I18nService;
+import com.atlassian.bitbucket.pull.PullRequest;
+import com.atlassian.bitbucket.pull.PullRequestParticipant;
+import com.atlassian.bitbucket.pull.PullRequestParticipantStatus;
 
-This repository contains several directories, and each directory contains a README file that describes what it is for in greater detail, and how to use it for managing your systems with Chef.
+public class IsIAMApproverCheck implements RepositoryMergeCheck {
+	
+	private final I18nService i18nService;
+	private static final Logger log = LoggerFactory.getLogger(IsIAMApproverCheck.class);
+	
+    public IsIAMApproverCheck(I18nService i18nService) {
+    	this.i18nService = i18nService;
+    }
 
-- `cookbooks/` - Cookbooks you download or create.
-- `data_bags/` - Store data bags and items in .json in the repository.
-- `roles/` - Store roles in .rb or .json in the repository.
-- `environments/` - Store environments in .rb or .json in the repository.
+	@Override
+	public RepositoryHookResult preUpdate(PreRepositoryHookContext context, PullRequestMergeHookRequest request) {
+		List<PullRequestParticipant> approvers = new ArrayList<PullRequestParticipant>();
+		
+		PullRequest pullRequest = request.getPullRequest();
+		pullRequest.getReviewers().stream()
+	    	.filter(p -> PullRequestParticipantStatus.APPROVED.equals(p.getStatus()))
+	    	.forEach(p -> approvers.add(p));
+		
+        if(isMergeToMaster(pullRequest) && !isIamApproved(approvers)){
+        	String summaryMsg = i18nService.getMessage("vanguard.plugin.pre.hook.isiamcheckrequired.summary");
+            String detailedMsg = i18nService.getMessage("vanguard.plugin.pre.hook.isiamcheckrequired.detailed");
+            return RepositoryHookResult.rejected(summaryMsg, detailedMsg);
+        }
+		return RepositoryHookResult.accepted();
+	}
+	
+	private boolean isMergeToMaster(PullRequest pullRequest) {
+		if(pullRequest.getToRef().toString().contains("refs/heads/master")) {
+			return true;
+		}
+		return false;
+	}
 
-# Configuration
+	private boolean isIamApproved(List<PullRequestParticipant> approvers) {
+		for(PullRequestParticipant approver : approvers){
+			//compare usernames
+			if("UCQB".equals(approver.getUser().getName())){
+				log.info("IsIAMApproverCheck.isIamApproved users: " + approver.getUser().getName());
+				return true;
+			}
+		}
+		return false;
+	}
 
-The config file, `.chef/knife.rb` is a repository specific configuration file for knife. If you're using the Chef Platform, you can download one for your organization from the management console. If you're using the Open Source Chef Server, you can generate a new one with `knife configure`. For more information about configuring Knife, see the Knife documentation.
-
-<https://docs.chef.io/knife.html>
-
-# Next Steps
-
-Read the README file in each of the subdirectories for more information about what goes in those directories.
+}
